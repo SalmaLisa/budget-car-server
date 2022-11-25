@@ -38,6 +38,7 @@ async function run() {
   try {
     const allAccountsCollection = client.db('budgetCarsDB').collection('allAccounts')
     const carsModelCollection = client.db('budgetCarsDB').collection('carsModel')
+    const allCarCollection = client.db('budgetCarsDB').collection('allCar')
 
     app.post('/allAccounts', async (req, res) => {
       const newlyCreatedAccount = req.body 
@@ -50,6 +51,12 @@ async function run() {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
       res.send({token})
+    })
+     //products api
+    app.get('/carsModel', async (req, res) => {
+      const query = {}
+      const result = await carsModelCollection.find(query).toArray()
+      res.send(result)
     })
 
     //admin check
@@ -72,7 +79,7 @@ async function run() {
        return res.send({isSeller:true})
       }
     })
-    //products api
+   
 
     //sellers api
     app.post('/sellers', verifyJWT, async (req, res) => {
