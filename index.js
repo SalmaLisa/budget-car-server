@@ -58,6 +58,12 @@ async function run() {
       const result = await carsModelCollection.find(query).toArray()
       res.send(result)
     })
+    app.post('/allCar', async (req, res) => {
+      const data = req.body
+      const result = await allCarCollection.insertOne(data)
+      console.log(result);
+      res.send(result)
+    })
 
     //admin check
     app.get('/admin/:email', async (req, res) => {
