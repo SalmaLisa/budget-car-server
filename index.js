@@ -84,6 +84,7 @@ async function run() {
       res.send(products)
     })
 
+
     //admin check
     app.get('/admin/:email', async (req, res) => {
       const email = req.params.email 
@@ -106,7 +107,15 @@ async function run() {
       }
       
     })
-   
+    
+    app.delete('/products/:id',verifyJWT, async (req, res) => {
+      const id = req.params.id 
+      
+      const query = { _id: ObjectId(id) }
+      const result = await allCarCollection.deleteOne(query)
+      res.send(result)
+      
+    })
 
     //sellers api
     app.post('/sellers', verifyJWT, async (req, res) => {
