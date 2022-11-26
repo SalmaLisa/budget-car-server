@@ -47,8 +47,9 @@ async function run() {
     })
 
     //jwt
-    app.get('/jwt', async (req, res) => {
+    app.post('/jwt', (req, res) => {
       const user = req.body;
+      console.log(user)
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
       res.send({token})
     })
@@ -61,8 +62,26 @@ async function run() {
     app.post('/allCar', async (req, res) => {
       const data = req.body
       const result = await allCarCollection.insertOne(data)
-      console.log(result);
       res.send(result)
+    })
+
+    app.post('/products', verifyJWT, async (req, res) => {
+      const email = req.body.email
+      const decodedEmail = req.decoded.email
+      if (email !== decodedEmail){
+        return res.status(403).send({message:"forbidden Access"})
+      }
+      console.log(decodedEmail);
+      const emailQuery = {userEmail: email }
+      const userData = await allAccountsCollection.findOne(emailQuery)
+      if (userData?.accountStatus !== "seller") {
+        return res.status(403).send({message:"forbidden Access"})
+      }
+     
+      const query = {}
+      const products = await allCarCollection.find(query).toArray()
+      
+      res.send(products)
     })
 
     //admin check
@@ -70,9 +89,10 @@ async function run() {
       const email = req.params.email 
       const emailQuery = { userEmail: email }
       const user = await allAccountsCollection.findOne(emailQuery)
-      if (user.accountStatus === "admin") {
+      if (user?.accountStatus === "admin") {
         res.send({isAdmin:true})
       }
+      
     })
 
     //seller check
@@ -80,22 +100,28 @@ async function run() {
       const email = req.params.email 
       const emailQuery = { userEmail: email }
       const user = await allAccountsCollection.findOne(emailQuery)
-      console.log(emailQuery)
+      
       if (user?.accountStatus === "seller") {
-       return res.send({isSeller:true})
+        res.send({isSeller:true})
       }
+      
     })
    
 
     //sellers api
     app.post('/sellers', verifyJWT, async (req, res) => {
       const email = req.body.email
+      const decodedEmail = req.decoded.email
+      if (email !== decodedEmail){
+        return res.status(403).send({message:"forbidden Access"})
+      }
+      console.log(decodedEmail);
       const emailQuery = {userEmail: email }
       const userData = await allAccountsCollection.findOne(emailQuery)
       if (userData?.accountStatus !== "admin") {
-        // return res.status(403).send({message:"forbidden Access"})
+        return res.status(403).send({message:"forbidden Access"})
       }
-      console.log(userData)
+     
       const query = {}
       const allAccounts = await allAccountsCollection.find(query).toArray()
       const sellers = allAccounts.filter(d=>d.accountStatus==="seller") 
@@ -122,13 +148,24 @@ async function run() {
     })
 
     //buyers api
-    app.get('/buyers', async (req, res) => {
+    app.post('/buyers', verifyJWT, async (req, res) => {
+      const email = req.body.email
+      const decodedEmail = req.decoded.email
+      if (email !== decodedEmail){
+        return res.status(403).send({message:"forbidden Access"})
+      }
+      console.log(decodedEmail);
+      const emailQuery = {userEmail: email }
+      const userData = await allAccountsCollection.findOne(emailQuery)
+      if (userData?.accountStatus !== "admin") {
+        return res.status(403).send({message:"forbidden Access"})
+      }
       const query = {}
       const data = await allAccountsCollection.find(query).toArray()
       const buyers = data.filter(d=>d.accountStatus === "buyer") 
       res.send(buyers)
     })
-    app.delete('/buyers/:id',verifyJWT, async (req, res) => {
+    app.delete('/buyers/:id', async (req, res) => {
       const id = req.params.id 
       const query = { _id: ObjectId(id) }
       const result = await allAccountsCollection.deleteOne(query)
