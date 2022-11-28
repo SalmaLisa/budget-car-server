@@ -41,7 +41,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-
     const allAccountsCollection = client
       .db("budgetCarsDB")
       .collection("allAccounts");
@@ -53,66 +52,59 @@ async function run() {
     const reportedItemsCollection = client
       .db("budgetCarsDB")
       .collection("reportedItems");
-    const paymentCollection = client
-      .db("budgetCarsDB")
-      .collection("payments");
-    
-//========================================
+    const paymentCollection = client.db("budgetCarsDB").collection("payments");
+
+    //========================================
     //all user account
     app.post("/allAccounts", async (req, res) => {
       const newlyCreatedAccount = req.body;
       const result = await allAccountsCollection.insertOne(newlyCreatedAccount);
       res.send(result);
     });
-//========================================
+    //========================================
     //jwt
     app.post("/jwt", (req, res) => {
       const user = req.body;
-
+      console.log(user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
         expiresIn: "10h",
       });
       res.send({ token });
     });
-//========================================
+    //========================================
     //payment
 
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
       const booking = req.body;
-      const price = booking.price
-      console.log(booking,price)
-      const amount = price * 100
+      const price = booking.price;
+      const amount = price * 100;
 
-    
       const paymentIntent = await stripe.paymentIntents.create({
         currency: "usd",
         amount: amount,
-        "payment_method_types": [
-          "card"
-        ],
+        payment_method_types: ["card"],
       });
 
       res.send({
         clientSecret: paymentIntent.client_secret,
       });
     });
-//========================================
+    //========================================
     //store payment
-    app.post('/payments', async (req, res) => {
+    app.post("/payments", async (req, res) => {
       const paymentData = req.body;
-      const result = await paymentCollection.insertOne(paymentData)
-      res.send(result)
-})
+      const result = await paymentCollection.insertOne(paymentData);
+      res.send(result);
+    });
 
-//========================================
+    //========================================
     //carModel
     app.get("/carModels", async (req, res) => {
       const query = {};
       const result = await carModelsCollection.find(query).toArray();
-      console.log(result);
       res.send(result);
     });
-//========================================
+    //========================================
     //single model api
     app.get("/carModels/:model", async (req, res) => {
       const model = req.params.model;
@@ -130,31 +122,29 @@ async function run() {
       );
       res.send(result);
     });
-//========================================
+    //========================================
     //all car of every model
     app.post("/allCar", async (req, res) => {
       const data = req.body;
       const result = await allCarCollection.insertOne(data);
       res.send(result);
     });
-//========================================
+    //========================================
     //my products
     app.post("/products", verifyJWT, async (req, res) => {
-      // console.log(req.decoded)
       const email = req.body.email;
       const decodedEmail = req.decoded.email;
       if (email !== decodedEmail) {
         return res.status(403).send({ message: "forbidden Access" });
       }
-      //========================================
-      // console.log(email,decodedEmail);
+
       const emailQuery = { userEmail: email };
       const userData = await allAccountsCollection.findOne(emailQuery);
       if (userData?.accountStatus !== "seller") {
         return res.status(403).send({ message: "forbidden Access" });
       }
 
-      const query = {};
+      const query = { sellerEmail: email };
       const products = await allCarCollection.find(query).toArray();
 
       res.send(products);
@@ -183,7 +173,7 @@ async function run() {
       const query = {};
       const allCar = await allCarCollection.find(query).toArray();
       const advertisedProducts = allCar.filter(
-        (car) => car.status === "advertised"
+        (car) => car.status === "advertised" && car.saleStatus === "available"
       );
       res.send(advertisedProducts);
     });
@@ -191,12 +181,22 @@ async function run() {
     //product delete
     app.delete("/products/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
-
       const query = { _id: ObjectId(id) };
       const result = await allCarCollection.deleteOne(query);
       res.send(result);
     });
-//========================================
+    //========================================
+    //buyer verify
+    app.get("/buyer/:email", async (req, res) => {
+      const email = req.params.email;
+      const emailQuery = { userEmail: email };
+      const user = await allAccountsCollection.findOne(emailQuery);
+      if (user?.accountStatus === "buyer") {
+        res.send({ isBuyer: true });
+      }
+    });
+    
+    //========================================
     //admin verify
     app.get("/admin/:email", async (req, res) => {
       const email = req.params.email;
@@ -206,7 +206,7 @@ async function run() {
         res.send({ isAdmin: true });
       }
     });
-//========================================
+    //========================================
     //seller verify
     app.get("/seller/:email", async (req, res) => {
       const email = req.params.email;
@@ -217,7 +217,7 @@ async function run() {
         res.send({ isSeller: true });
       }
     });
-//========================================
+    //========================================
     //all seller
     app.post("/sellers", verifyJWT, async (req, res) => {
       const email = req.body.email;
@@ -225,7 +225,7 @@ async function run() {
       if (email !== decodedEmail) {
         return res.status(403).send({ message: "forbidden Access" });
       }
-      console.log(decodedEmail);
+
       const emailQuery = { userEmail: email };
       const userData = await allAccountsCollection.findOne(emailQuery);
       if (userData?.accountStatus !== "admin") {
@@ -237,7 +237,7 @@ async function run() {
       const sellers = allAccounts.filter((d) => d.accountStatus === "seller");
       res.send(sellers);
     });
-//========================================
+    //========================================
     //seller status verification api
     app.put("/sellers/verifyStatus/:id", async (req, res) => {
       const id = req.params.id;
@@ -262,7 +262,7 @@ async function run() {
       const result = await allAccountsCollection.deleteOne(query);
       res.send(result);
     });
-//========================================
+    //========================================
     //all buyers
     app.post("/buyers", verifyJWT, async (req, res) => {
       const email = req.body.email;
@@ -270,7 +270,7 @@ async function run() {
       if (email !== decodedEmail) {
         return res.status(403).send({ message: "forbidden Access" });
       }
-      console.log(decodedEmail);
+
       const emailQuery = { userEmail: email };
       const userData = await allAccountsCollection.findOne(emailQuery);
       if (userData?.accountStatus !== "admin") {
@@ -281,7 +281,7 @@ async function run() {
       const buyers = data.filter((d) => d.accountStatus === "buyer");
       res.send(buyers);
     });
-//========================================
+    //========================================
     //buyer delete
     app.delete("/buyers/:id", async (req, res) => {
       const id = req.params.id;
@@ -289,7 +289,7 @@ async function run() {
       const result = await allAccountsCollection.deleteOne(query);
       res.send(result);
     });
-//========================================
+    //========================================
     //booking store
     app.post("/bookings", async (req, res) => {
       const bookingInfo = req.body;
@@ -307,10 +307,33 @@ async function run() {
     //========================================
     app.get("/bookingPayment/:id", async (req, res) => {
       const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await bookingCollection.findOne(query);
+      res.send(result);
+    });
+    //========================================
+    //update payment status
+    app.patch("/bookingPayment/:id", async (req, res) => {
+      const id = req.params.id;
       console.log(id);
       const query = { _id: ObjectId(id) };
-      console.log(query);
-      const result = await bookingCollection.findOne(query);
+      const paidProduct = await bookingCollection.findOne(query);
+      console.log(paidProduct);
+      const carIdQuery = { _id: ObjectId(paidProduct.carId) };
+      console.log(carIdQuery);
+      const updateDoc1 = {
+        $set: {
+          saleStatus: "sold",
+        },
+      };
+      const soldCar = await allCarCollection.updateOne(carIdQuery, updateDoc1);
+      console.log(soldCar);
+      const updateDoc2 = {
+        $set: {
+          paymentStatus: "paid",
+        },
+      };
+      const result = await bookingCollection.updateOne(query, updateDoc2);
       res.send(result);
     });
     //============================================
