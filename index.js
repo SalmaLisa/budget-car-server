@@ -13,6 +13,7 @@ app.use(express.json());
 
 const verifyJWT = (req, res, next) => {
   const header = req.headers.authorization;
+  console.log(header)
   if (!header) {
     return res.status(401).send({ message: "Unauthorized Access" });
   }
@@ -269,7 +270,6 @@ async function run() {
       if (email !== decodedEmail) {
         return res.status(403).send({ message: "forbidden Access" });
       }
-
       const emailQuery = { userEmail: email };
       const userData = await allAccountsCollection.findOne(emailQuery);
       if (userData?.accountStatus !== "admin") {
@@ -301,7 +301,6 @@ async function run() {
       const paramEmail = req.params.email
       const email = req.body.email;
       const decodedEmail = req.decoded.email;
-      console.log(email,decodedEmail,paramEmail)
       if (email !== decodedEmail) {
         return res.status(403).send({ message: "forbidden Access" });
       }
