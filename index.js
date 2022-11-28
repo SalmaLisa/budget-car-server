@@ -65,7 +65,6 @@ async function run() {
     //jwt
     app.post("/jwt", (req, res) => {
       const user = req.body;
-      console.log(user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
         expiresIn: "10h",
       });
@@ -298,9 +297,15 @@ async function run() {
     });
     //========================================
     //booking get api
-    app.get("/bookings/:email", async (req, res) => {
-      const email = req.params.email;
-      const query = { email: email };
+    app.post("/bookings/:email", verifyJWT, async (req, res) => {
+      const paramEmail = req.params.email
+      const email = req.body.email;
+      const decodedEmail = req.decoded.email;
+      console.log(email,decodedEmail,paramEmail)
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "forbidden Access" });
+      }
+      const query = { email: paramEmail };
       const result = await bookingCollection.find(query).toArray();
       res.send(result);
     });
@@ -315,19 +320,15 @@ async function run() {
     //update payment status
     app.patch("/bookingPayment/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const query = { _id: ObjectId(id) };
       const paidProduct = await bookingCollection.findOne(query);
-      console.log(paidProduct);
       const carIdQuery = { _id: ObjectId(paidProduct.carId) };
-      console.log(carIdQuery);
       const updateDoc1 = {
         $set: {
           saleStatus: "sold",
         },
       };
       const soldCar = await allCarCollection.updateOne(carIdQuery, updateDoc1);
-      console.log(soldCar);
       const updateDoc2 = {
         $set: {
           paymentStatus: "paid",
